@@ -1,0 +1,53 @@
+# Telegram идёт напрямую (стабильная доставка сообщений).
+# Запросы к КЕП — только через VPN (HTTP-прокси gluetun).
+#
+# 1. Скопируйте .env.example → .env
+# 2. Положите .ovpn в ./vpn/custom.ovpn
+# 3. Впишите TELEGRAM_BOT_TOKEN и логин/пароль VPN в .env
+# 4. docker compose up -d --build
+# 5. docker compose logs -f vpn
+# 6. docker compose logs -f bot
+# 7. Напишите боту /start в Telegram
+
+services:
+  vpn:
+    image: qmcgaw/gluetun:v3
+    container_name: kep-vpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Nicosia
+      - VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=openvpn
+      - OPENVPN_CUSTOM_CONFIG=/gluetun/custom.ovpn
+      - UPDATER_PERIOD=24h
+      - HTTPPROXY=on
+      - HTTPPROXY_LISTENING_ADDRESS=:8888
+      - FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12,192.168.0.0/16,10.0.0.0/8
+    volumes:
+      - vpn-data:/gluetun
+      - ./vpn/custom.ovpn:/gluetun/custom.ovpn:ro
+    restart: unless-stopped
+
+  bot:
+    build: .
+    container_name: kep-bot
+    depends_on:
+      vpn:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Nicosia
+      - DOTNET_ENVIRONMENT=Production
+      - KEP_HTTP_PROXY=http://vpn:8888
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+volumes:
+  vpn-data:

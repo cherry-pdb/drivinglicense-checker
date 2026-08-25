@@ -1,0 +1,16 @@
+bin/
+obj/
+logs/
+data/
+.vs/
+*.user
+.env
+appsettings.Local.json
+subscribers.json
+site-dump/
+publish/
+vpn/*.ovpn
+vpn/*.conf
+vpn/*.key
+vpn/*.pem
+!vpn/README.txt
