@@ -52,7 +52,8 @@ if (checkOnce)
 
     if (result.Slots.Count == 0)
     {
-        Console.WriteLine("Сайт открылся. Свободных слотов на 7–9 сентября в Энгоми пока нет.");
+        var dates = probe.Services.GetRequiredService<IOptions<WatcherOptions>>().Value.TargetDates;
+        Console.WriteLine($"Сайт открылся. Свободных слотов на {string.Join(", ", dates)} в Энгоми пока нет.");
         return;
     }
 

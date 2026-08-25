@@ -122,8 +122,8 @@ public sealed class TelegramBotService : BackgroundService
             {
                 case "/start":
                     _subscribers.Add(chatId);
-                    await _sender.SendAsync(chatId, """
-                        Слежу за слотами КЕП Энгоми (Никосия) на <b>7, 8 и 9 сентября 2026</b> — любое время.
+                    await _sender.SendAsync(chatId, $"""
+                        Слежу за слотами КЕП Энгоми (Никосия) на <b>{_watcher.DatesHtml}</b> — любое время.
 
                         Каждую минуту открываю https://kep-kepo.gov.cy/appointments
                         Как только появится слот на водительские права, сразу напишу сюда.
@@ -131,6 +131,7 @@ public sealed class TelegramBotService : BackgroundService
                         Команды:
                         /status — последняя проверка
                         /check — проверить сейчас
+                        /ping — проверка Telegram
                         /stop — отписаться
                         """, ct, ParseMode.Html);
                     break;
@@ -249,11 +250,14 @@ public sealed class SlotWatcherService : BackgroundService
 
         if (_last.Slots.Count == 0)
         {
-            return $"Последняя проверка: {when}\nСлотов на 7–9 сентября пока нет.";
+            return $"Последняя проверка: {when}\nСлотов на {DatesPlain} пока нет.";
         }
 
         return $"Последняя проверка: {when}\n{FormatSlots(_last)}";
     }
+
+    public string DatesPlain => FormatDatesLabel(_options.TargetDates, html: false);
+    public string DatesHtml => FormatDatesLabel(_options.TargetDates, html: true);
 
     public string FormatCheckReply(SlotCheckResult result)
     {
@@ -270,7 +274,7 @@ public sealed class SlotWatcherService : BackgroundService
 
         if (result.Slots.Count == 0)
         {
-            return "Проверил сайт: свободных слотов на 7, 8 или 9 сентября пока нет.";
+            return $"Проверил сайт: свободных слотов на {DatesPlain} пока нет.";
         }
 
         return FormatSlots(result);
@@ -322,13 +326,13 @@ public sealed class SlotWatcherService : BackgroundService
             {
                 if (!string.IsNullOrEmpty(_lastNotifiedKey))
                 {
-                    await NotifyAsync("Слоты на 7–9 сентября в Энгоми только что исчезли. Продолжаю следить.", ct);
+                    await NotifyAsync($"Слоты на {DatesPlain} в Энгоми только что исчезли. Продолжаю следить.", ct);
                 }
 
                 _lastNotifiedKey = "";
                 if (notifyEvenIfEmpty && !manualReply)
                 {
-                    await NotifyAsync("Проверил сайт: свободных слотов на 7, 8 или 9 сентября пока нет.", ct);
+                    await NotifyAsync($"Проверил сайт: свободных слотов на {DatesPlain} пока нет.", ct);
                 }
 
                 if (!string.IsNullOrWhiteSpace(result.Diagnostic) && notifyEvenIfEmpty && !manualReply)
@@ -436,6 +440,36 @@ public sealed class SlotWatcherService : BackgroundService
         lines.Add("");
         lines.Add("🔗 Записаться: https://kep-kepo.gov.cy/appointments");
         return string.Join("\n", lines);
+    }
+
+    private static string FormatDatesLabel(IEnumerable<string> rawDates, bool html)
+    {
+        var dates = rawDates
+            .Select(raw => DateOnly.TryParse(raw, out var d) ? d : (DateOnly?)null)
+            .Where(d => d is not null)
+            .Select(d => d!.Value)
+            .OrderBy(d => d)
+            .ToList();
+
+        if (dates.Count == 0)
+        {
+            return "выбранные даты";
+        }
+
+        var days = string.Join(", ", dates.Select(d => d.Day.ToString()));
+        if (dates.Count >= 2)
+        {
+            var lastComma = days.LastIndexOf(", ", StringComparison.Ordinal);
+            if (lastComma >= 0)
+            {
+                days = days[..lastComma] + " и " + days[(lastComma + 2)..];
+            }
+        }
+
+        var year = dates[0].Year;
+        var month = dates[0].ToString("MMMM", new System.Globalization.CultureInfo("ru-RU"));
+        var label = $"{days} {month} {year}";
+        return html ? Html(label) : label;
     }
 
     private static string Html(string value) =>
