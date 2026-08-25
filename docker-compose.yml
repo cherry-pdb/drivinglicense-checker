@@ -24,10 +24,15 @@ services:
       - VPN_SERVICE_PROVIDER=custom
       - VPN_TYPE=openvpn
       - OPENVPN_CUSTOM_CONFIG=/gluetun/custom.ovpn
+      - OPENVPN_PROTOCOL=tcp
       - UPDATER_PERIOD=24h
       - HTTPPROXY=on
       - HTTPPROXY_LISTENING_ADDRESS=:8888
-      - FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12,192.168.0.0/16,10.0.0.0/8
+      # Только Docker/LAN. НЕ добавляйте 10.0.0.0/8 — там адрес туннеля VPN.
+      - FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12,192.168.0.0/16
+      # На VPS VPN иногда поднимается дольше
+      - HEALTH_VPN_DURATION_INITIAL=90s
+      - HEALTH_SUCCESS_WAIT_DURATION=10s
     volumes:
       - vpn-data:/gluetun
       - ./vpn/custom.ovpn:/gluetun/custom.ovpn:ro
